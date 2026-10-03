@@ -1,0 +1,6 @@
+{
+    "rust-analyzer.cargo.target": "thumbv6m-none-eabi",
+    "rust-analyzer.check.allTargets": false,
+    "editor.formatOnSave": true,
+    "bakerLink.dapServer": "host.docker.internal:50001"
+}

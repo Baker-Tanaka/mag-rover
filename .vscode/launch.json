@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "preLaunchTask": "baker-link: prepare debug",
+            "type": "probe-rs-debug",
+            "request": "launch",
+            "name": "probe_rs Server attach example",
+            "server": "${config:bakerLink.dapServer}",
+            "remoteServerMode": false,
+            "speed": 4000,
+            "chip": "RP2040",
+            "flashingConfig": {
+                "flashingEnabled": true,
+                "haltAfterReset": true,
+            },
+            "coreConfigs": [
+                {
+                    "coreIndex": 0,
+                    "programBinary": "bakerlink://mag-rover/debug",
+                    "rttEnabled": true,
+                }
+            ],
+            "env": {
+                "RUST_LOG": "info"
+            },
+            "consoleLogLevel": "Info"
+        }
+    ]
+}
