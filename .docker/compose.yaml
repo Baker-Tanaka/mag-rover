@@ -4,6 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     image: "ghcr.io/baker-link-lab/bakerlink-env:latest"
+    user: vscode
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
