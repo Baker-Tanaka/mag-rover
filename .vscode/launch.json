@@ -2,8 +2,8 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "preLaunchTask": "baker-link: prepare debug",
-            "type": "probe-rs-debug",
+            "preLaunchTask": "cargo: build",
+            "type": "baker-link-debug",
             "request": "launch",
             "name": "probe_rs Server attach example",
             "server": "${config:bakerLink.dapServer}",
@@ -23,6 +23,11 @@
             ],
             "env": {
                 "RUST_LOG": "info"
+            },
+            "bakerLink": {
+                "dapServer": "host.docker.internal:50001",
+                "uploadUrl": "http://host.docker.internal:50002",
+                "elf": "${workspaceFolder}/target/thumbv6m-none-eabi/debug/mag-rover"
             },
             "consoleLogLevel": "Info"
         }
