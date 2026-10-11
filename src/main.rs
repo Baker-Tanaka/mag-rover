@@ -2,7 +2,8 @@
 //
 // GPIO26のADC値と目標値の誤差および積分値で、GPIO4のPWM出力を調整します。
 // PWM出力を増やすとADC値も増える回路を想定しています。
-// 制御値とADC値を約100 msごとに更新・ログ出力します。
+// GPIO0(SDA)/GPIO1(SCL)に接続したGP2Y0E02の距離もログ出力します。
+// 制御値、ADC値、距離値を約10 msごとに更新・ログ出力します。
 //
 // 実行方法: cargo run
 
@@ -12,9 +13,11 @@
 use defmt::*;
 use defmt_rtt as _;
 use embassy_executor::Spawner;
-use embassy_rp::adc::{Adc, Channel, InterruptHandler};
+use embassy_rp::adc::{Adc, Channel, InterruptHandler as AdcInterruptHandler};
 use embassy_rp::bind_interrupts;
 use embassy_rp::gpio::Pull;
+use embassy_rp::i2c::{self, Config, InterruptHandler as I2cInterruptHandler};
+use embassy_rp::peripherals::I2C0;
 use embassy_rp::pwm::{Pwm, SetDutyCycle};
 use embassy_time::{Instant, Timer};
 use panic_probe as _;
@@ -22,10 +25,14 @@ use panic_probe as _;
 const PROPORTIONAL_GAIN: f32 = 0.3;
 const INTEGRAL_GAIN: f32 = 0.1;
 const PWM_PERIOD_COUNTS: u16 = 1024;
+const GP2Y0E02_I2C_ADDRESS: u8 = 0x40;
+const GP2Y0E02_DISTANCE_REGISTER: u8 = 0x5E;
+const GP2Y0E02_SHIFT_REGISTER: u8 = 0x35;
 
 bind_interrupts!(
     struct Irqs {
-        ADC_IRQ_FIFO => InterruptHandler;
+        ADC_IRQ_FIFO => AdcInterruptHandler;
+        I2C0_IRQ => I2cInterruptHandler<I2C0>;
     }
 );
 
@@ -38,6 +45,19 @@ async fn main(_spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
     let mut adc = Adc::new(p.ADC, Irqs, embassy_rp::adc::Config::default());
     let mut p26 = Channel::new_pin(p.PIN_26, Pull::None);
+
+    let mut i2c = i2c::I2c::new_async(p.I2C0, p.PIN_1, p.PIN_0, Irqs, Config::default());
+    Timer::after_millis(1).await;
+
+    let mut shift_register = [0u8; 1];
+    i2c.write_read_async(
+        GP2Y0E02_I2C_ADDRESS,
+        [GP2Y0E02_SHIFT_REGISTER],
+        &mut shift_register,
+    )
+    .await
+    .unwrap();
+    let distance_shift = shift_register[0] & 0x07;
 
     let clock_freq_hz = embassy_rp::clocks::clk_sys_freq();
     let divider = 1u8;
@@ -60,6 +80,18 @@ async fn main(_spawner: Spawner) {
 
     loop {
         let level = adc.read(&mut p26).await.unwrap();
+        let mut distance_registers = [0u8; 2];
+        i2c.write_read_async(
+            GP2Y0E02_I2C_ADDRESS,
+            [GP2Y0E02_DISTANCE_REGISTER],
+            &mut distance_registers,
+        )
+        .await
+        .unwrap();
+        let distance_raw =
+            (u16::from(distance_registers[0]) << 4) | u16::from(distance_registers[1] & 0x0F);
+        let distance_cm = f32::from(distance_raw) / f32::from(16 * (1u16 << distance_shift));
+
         let now = Instant::now();
         let elapsed_secs = (now - previous_time).as_micros() as f32 / 1_000_000.0;
         previous_time = now;
@@ -82,8 +114,8 @@ async fn main(_spawner: Spawner) {
 
         pwm.set_duty_cycle(duty_count).unwrap();
         info!(
-            "ADC: {}, target: {}, error: {}, I: {}, PWM: {}/{}",
-            level, target, error, integral_term, duty_count, max_duty
+            "ADC: {}, distance: {} cm (raw: {}), target: {}, error: {}, I: {}, PWM: {}/{}",
+            level, distance_cm, distance_raw, target, error, integral_term, duty_count, max_duty
         );
         Timer::after_millis(10).await;
     }
