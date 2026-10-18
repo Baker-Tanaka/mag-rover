@@ -1,7 +1,9 @@
 {
     "name": "mag-rover",
-    "dockerComposeFile": "../.docker/compose.yaml",
-    "service": "mag-rover",
+    "build": {
+        "dockerfile": "../.docker/Dockerfile"
+    },
+    "workspaceMount": "source=${localWorkspaceFolder},target=/mag-rover,type=bind",
     "workspaceFolder": "/mag-rover",
     "remoteUser": "vscode",
     "updateRemoteUserUID": true,
@@ -11,7 +13,8 @@
                 "rust-lang.rust-analyzer",
                 "probe-rs.probe-rs-debugger",
                 "tamasfe.even-better-toml",
-                "fill-labs.dependi"
+                "fill-labs.dependi",
+                "baker-link-lab.baker-link-env"
             ]
         }
     }
